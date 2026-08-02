@@ -55,7 +55,7 @@ class AgentState(BaseModel):
     final_output: str = ""
     iteration: int = 0
 
-# --- Live Groq LPU Powered Agents ---
+# --- Live Groq LPU Powered Agents (Switched to openai/gpt-oss-120b) ---
 
 class RouterAgent:
     def __init__(self, client: AsyncGroq):
@@ -63,7 +63,7 @@ class RouterAgent:
 
     async def process(self, state: AgentState) -> str:
         response = await self.client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
+            model="openai/gpt-oss-120b",
             messages=[
                 {"role": "system", "content": "You are a specialized query optimization agent for high-precision hybrid retrieval systems. Output ONLY the optimized search query string without any conversational filler."},
                 {"role": "user", "content": f"Optimize this query for vector search: {state.query}"}
@@ -88,7 +88,7 @@ class CriticAgent:
     async def evaluate(self, state: AgentState) -> str:
         context_preview = "\n".join(state.retrieved_docs)
         response = await self.client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
+            model="openai/gpt-oss-120b",
             messages=[
                 {"role": "system", "content": "You are a strict validation critic agent. Evaluate if the retrieved context adequately answers the initial user query. Respond with 'Approved: [Reason]' or 'Rejected: [Reason]'."},
                 {"role": "user", "content": f"Query: {state.query}\n\nRetrieved Context:\n{context_preview}"}
@@ -105,7 +105,7 @@ class SynthesizerAgent:
     async def synthesize(self, state: AgentState) -> str:
         context_str = "\n".join(state.retrieved_docs)
         response = await self.client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
+            model="openai/gpt-oss-120b",
             messages=[
                 {"role": "system", "content": "You are the Lead Synthesizer Agent in an AR-FT swarm architecture. Formulate a definitive, highly technical, and precise final output based strictly on the provided verified context."},
                 {"role": "user", "content": f"Original Query: {state.query}\n\nVerified Context:\n{context_str}\n\nCritique Status: {state.critique}"}
@@ -119,7 +119,6 @@ class SynthesizerAgent:
 
 class ARFTMultiAgentSwarm:
     def __init__(self):
-        # Automatically loads GROQ_API_KEY from environment variables (.env or system export)
         api_key = os.environ.get("GROQ_API_KEY")
         if not api_key:
             raise ValueError("GROQ_API_KEY environment variable is not set.")
@@ -132,7 +131,7 @@ class ARFTMultiAgentSwarm:
     async def run(self, initial_query: str, status_callback) -> str:
         state = AgentState(query=initial_query)
         
-        status_callback("⚡ [Router Agent] Optimizing query via Groq LPU...")
+        status_callback("⚡ [Router Agent] Optimizing query via Groq LPU (GPT-OSS-120B)...")
         opt_query = await self.router.process(state)
         status_callback(f"⚡ [Router Agent] Optimized Query: `{opt_query}`")
         
@@ -155,7 +154,7 @@ st.markdown("### A.I. Sovereign Adaptive Retrieval-FineTuning Neural Engine")
 
 with st.sidebar:
     st.header("CONFIG // STATUS")
-    st.markdown("**Active Engine:** `llama-3.3-70b-versatile`")
+    st.markdown("**Active Engine:** `openai/gpt-oss-120b`")
     st.markdown("**Hardware:** Groq LPU")
     st.markdown("**Topology:** AR-FT Multi-Agent Graph")
     st.markdown("---")
