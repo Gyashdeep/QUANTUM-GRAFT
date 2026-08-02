@@ -2,7 +2,7 @@ import asyncio
 import os
 from typing import List
 from pydantic import BaseModel, Field
-from openai import AsyncOpenAI
+from groq import AsyncGroq
 import streamlit as st
 
 # --- Page Configuration ---
@@ -55,15 +55,15 @@ class AgentState(BaseModel):
     final_output: str = ""
     iteration: int = 0
 
-# --- Live OpenAI gpt-oss-120b Powered Agents ---
+# --- Live Groq LPU Powered Agents ---
 
 class RouterAgent:
-    def __init__(self, client: AsyncOpenAI):
+    def __init__(self, client: AsyncGroq):
         self.client = client
 
     async def process(self, state: AgentState) -> str:
         response = await self.client.chat.completions.create(
-            model="gpt-oss-120b",
+            model="llama-3.3-70b-versatile",
             messages=[
                 {"role": "system", "content": "You are a specialized query optimization agent for high-precision hybrid retrieval systems. Output ONLY the optimized search query string without any conversational filler."},
                 {"role": "user", "content": f"Optimize this query for vector search: {state.query}"}
@@ -82,13 +82,13 @@ class RetrievalAgent:
         ]
 
 class CriticAgent:
-    def __init__(self, client: AsyncOpenAI):
+    def __init__(self, client: AsyncGroq):
         self.client = client
 
     async def evaluate(self, state: AgentState) -> str:
         context_preview = "\n".join(state.retrieved_docs)
         response = await self.client.chat.completions.create(
-            model="gpt-oss-120b",
+            model="llama-3.3-70b-versatile",
             messages=[
                 {"role": "system", "content": "You are a strict validation critic agent. Evaluate if the retrieved context adequately answers the initial user query. Respond with 'Approved: [Reason]' or 'Rejected: [Reason]'."},
                 {"role": "user", "content": f"Query: {state.query}\n\nRetrieved Context:\n{context_preview}"}
@@ -99,13 +99,13 @@ class CriticAgent:
         return response.choices[0].message.content.strip()
 
 class SynthesizerAgent:
-    def __init__(self, client: AsyncOpenAI):
+    def __init__(self, client: AsyncGroq):
         self.client = client
 
     async def synthesize(self, state: AgentState) -> str:
         context_str = "\n".join(state.retrieved_docs)
         response = await self.client.chat.completions.create(
-            model="gpt-oss-120b",
+            model="llama-3.3-70b-versatile",
             messages=[
                 {"role": "system", "content": "You are the Lead Synthesizer Agent in an AR-FT swarm architecture. Formulate a definitive, highly technical, and precise final output based strictly on the provided verified context."},
                 {"role": "user", "content": f"Original Query: {state.query}\n\nVerified Context:\n{context_str}\n\nCritique Status: {state.critique}"}
@@ -119,7 +119,7 @@ class SynthesizerAgent:
 
 class ARFTMultiAgentSwarm:
     def __init__(self, api_key: str):
-        self.client = AsyncOpenAI(api_key=api_key)
+        self.client = AsyncGroq(api_key=api_key)
         self.router = RouterAgent(self.client)
         self.retriever = RetrievalAgent()
         self.critic = CriticAgent(self.client)
@@ -128,7 +128,7 @@ class ARFTMultiAgentSwarm:
     async def run(self, initial_query: str, status_callback) -> str:
         state = AgentState(query=initial_query)
         
-        status_callback("⚡ [Router Agent] Optimizing query via gpt-oss-120b...")
+        status_callback("⚡ [Router Agent] Optimizing query via Groq LPU...")
         opt_query = await self.router.process(state)
         status_callback(f"⚡ [Router Agent] Optimized Query: `{opt_query}`")
         
@@ -151,16 +151,17 @@ st.markdown("### A.I. Sovereign Adaptive Retrieval-FineTuning Neural Engine")
 
 with st.sidebar:
     st.header("CONFIG // SECRETS")
-    api_key_input = st.text_input("OpenAI API Key", type="password", value=os.environ.get("OPENAI_API_KEY", ""))
+    api_key_input = st.text_input("Groq API Key", type="password", value=os.environ.get("GROQ_API_KEY", ""))
     st.markdown("---")
-    st.markdown("**Active Engine:** `gpt-oss-120b`")
+    st.markdown("**Active Engine:** `llama-3.3-70b-versatile`")
+    st.markdown("**Hardware:** Groq LPU")
     st.markdown("**Topology:** AR-FT Multi-Agent Graph")
 
 user_prompt = st.text_area("INITIALIZE SWARM COMMAND:", "Deploy adaptive retrieval fine-tuning for extreme multi-agent synchronization.")
 
 if st.button("EXECUTE SWARM CYCLE"):
     if not api_key_input:
-        st.error("ERROR: Missing API Key. Input credentials in sidebar.")
+        st.error("ERROR: Missing Groq API Key. Input credentials in sidebar.")
     else:
         st.markdown("---")
         status_container = st.empty()
