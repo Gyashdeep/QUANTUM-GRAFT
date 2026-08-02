@@ -3,6 +3,49 @@ import os
 from typing import List
 from pydantic import BaseModel, Field
 from openai import AsyncOpenAI
+import streamlit as st
+
+# --- Page Configuration ---
+st.set_page_config(
+    page_title="QUANTUM-GRAFT: A.I. Sovereign Swarm",
+    page_icon="⚡",
+    layout="wide",
+)
+
+# --- Cyberpunk / Industrial Terminal Styling ---
+st.markdown("""
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap');
+    
+    html, body, [class*="css"] {
+        font-family: 'JetBrains Mono', monospace;
+        background-color: #050505;
+        color: #00ff66;
+    }
+    .stTextInput input, .stTextArea textarea {
+        background-color: #0a0a0a !important;
+        color: #00ff66 !important;
+        border: 1px solid #00ff66 !important;
+        font-family: 'JetBrains Mono', monospace;
+    }
+    .stButton button {
+        background-color: #00ff66 !important;
+        color: #050505 !important;
+        font-weight: bold;
+        border-radius: 0px;
+        font-family: 'JetBrains Mono', monospace;
+        border: 1px solid #00ff66;
+    }
+    .stButton button:hover {
+        background-color: #050505 !important;
+        color: #00ff66 !important;
+    }
+    div[data-testid="stSidebar"] {
+        background-color: #080808;
+        border-right: 1px solid #113311;
+    }
+</style>
+""", unsafe_allow_html=True)
 
 # --- Schemas & State ---
 class AgentState(BaseModel):
@@ -15,12 +58,10 @@ class AgentState(BaseModel):
 # --- Live OpenAI gpt-oss-120b Powered Agents ---
 
 class RouterAgent:
-    """Agent Alpha: Analyzes query and optimizes search parameters using OpenAI gpt-oss-120b."""
     def __init__(self, client: AsyncOpenAI):
         self.client = client
 
     async def process(self, state: AgentState) -> str:
-        print(f"[Router Agent] Optimizing query via gpt-oss-120b: '{state.query}'")
         response = await self.client.chat.completions.create(
             model="gpt-oss-120b",
             messages=[
@@ -30,27 +71,21 @@ class RouterAgent:
             temperature=0.1,
             max_tokens=60
         )
-        optimized = response.choices[0].message.content.strip()
-        print(f"[Router Agent] Optimized Query: {optimized}")
-        return optimized
+        return response.choices[0].message.content.strip()
 
 class RetrievalAgent:
-    """Performs Hybrid BM25 + Vector Search (Production Mock / Hook point)."""
     async def search(self, optimized_query: str) -> List[str]:
-        print(f"[Retrieval Engine] Fetching context for: {optimized_query}")
-        await asyncio.sleep(0.1) # Simulate high-speed vector DB fetch (e.g., Qdrant)
+        await asyncio.sleep(0.1)
         return [
             "Context Chunk 1: AR-FT combines adaptive retrieval thresholds with domain-specific QLoRA weights to mitigate hallucination drift.",
             "Context Chunk 2: Multi-agent coordination graphs utilize state-machine loops to validate semantic alignment before final output synthesis."
         ]
 
 class CriticAgent:
-    """Agent Beta: Evaluates retrieved context and intermediate alignment using gpt-oss-120b."""
     def __init__(self, client: AsyncOpenAI):
         self.client = client
 
     async def evaluate(self, state: AgentState) -> str:
-        print("[Critic Agent] Evaluating retrieved chunks via gpt-oss-120b...")
         context_preview = "\n".join(state.retrieved_docs)
         response = await self.client.chat.completions.create(
             model="gpt-oss-120b",
@@ -61,17 +96,13 @@ class CriticAgent:
             temperature=0.1,
             max_tokens=100
         )
-        critique_result = response.choices[0].message.content.strip()
-        print(f"[Critic Agent] Result: {critique_result}")
-        return critique_result
+        return response.choices[0].message.content.strip()
 
 class SynthesizerAgent:
-    """Agent Gamma: Generates final hardened response via gpt-oss-120b."""
     def __init__(self, client: AsyncOpenAI):
         self.client = client
 
     async def synthesize(self, state: AgentState) -> str:
-        print("[Synthesizer Agent] Constructing final response via gpt-oss-120b...")
         context_str = "\n".join(state.retrieved_docs)
         response = await self.client.chat.completions.create(
             model="gpt-oss-120b",
@@ -87,38 +118,63 @@ class SynthesizerAgent:
 # --- Orchestration Graph Runtime ---
 
 class ARFTMultiAgentSwarm:
-    def __init__(self):
-        # Initialize Async OpenAI Client (picks up OPENAI_API_KEY env variable)
-        self.client = AsyncOpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
+    def __init__(self, api_key: str):
+        self.client = AsyncOpenAI(api_key=api_key)
         self.router = RouterAgent(self.client)
         self.retriever = RetrievalAgent()
         self.critic = CriticAgent(self.client)
         self.synthesizer = SynthesizerAgent(self.client)
 
-    async def run(self, initial_query: str) -> str:
+    async def run(self, initial_query: str, status_callback) -> str:
         state = AgentState(query=initial_query)
         
-        # Step 1: Route & Optimize Query via gpt-oss-120b
+        status_callback("⚡ [Router Agent] Optimizing query via gpt-oss-120b...")
         opt_query = await self.router.process(state)
+        status_callback(f"⚡ [Router Agent] Optimized Query: `{opt_query}`")
         
-        # Step 2: Retrieve Context Chunks
+        status_callback("⚡ [Retrieval Engine] Fetching context chunks...")
         state.retrieved_docs = await self.retriever.search(opt_query)
         
-        # Step 3: Critique & Validate Retrieval via gpt-oss-120b
+        status_callback("⚡ [Critic Agent] Evaluating semantic alignment...")
         state.critique = await self.critic.evaluate(state)
+        status_callback(f"⚡ [Critic Agent] Status: {state.critique}")
         
-        # Step 4: Synthesize Final Output via gpt-oss-120b
+        status_callback("⚡ [Synthesizer Agent] Constructing final hardened response...")
         state.final_output = await self.synthesizer.synthesize(state)
         
         return state.final_output
 
-# --- Execution Entrypoint ---
-if __name__ == "__main__":
-    if not os.environ.get("OPENAI_API_KEY"):
-        raise ValueError("Please set your OPENAI_API_KEY environment variable before running.")
+# --- Streamlit UI Layout ---
+
+st.title("QUANTUM-GRAFT // TERMINAL SWARM")
+st.markdown("### A.I. Sovereign Adaptive Retrieval-FineTuning Neural Engine")
+
+with st.sidebar:
+    st.header("CONFIG // SECRETS")
+    api_key_input = st.text_input("OpenAI API Key", type="password", value=os.environ.get("OPENAI_API_KEY", ""))
+    st.markdown("---")
+    st.markdown("**Active Engine:** `gpt-oss-120b`")
+    st.markdown("**Topology:** AR-FT Multi-Agent Graph")
+
+user_prompt = st.text_area("INITIALIZE SWARM COMMAND:", "Deploy adaptive retrieval fine-tuning for extreme multi-agent synchronization.")
+
+if st.button("EXECUTE SWARM CYCLE"):
+    if not api_key_input:
+        st.error("ERROR: Missing API Key. Input credentials in sidebar.")
+    else:
+        st.markdown("---")
+        status_container = st.empty()
+        logs = []
+
+        def update_status(msg):
+            logs.append(msg)
+            status_container.markdown("\n\n".join([f"> `{log}`" for log in logs]))
+
+        swarm = ARFTMultiAgentSwarm(api_key_input)
         
-    swarm = ARFTMultiAgentSwarm()
-    user_prompt = "Deploy adaptive retrieval fine-tuning for extreme multi-agent synchronization."
-    
-    result = asyncio.run(swarm.run(user_prompt))
-    print("\n" + "="*40 + "\n" + result + "\n" + "="*40)
+        try:
+            result = asyncio.run(swarm.run(user_prompt, update_status))
+            st.markdown("### EXECUTION RESULT:")
+            st.success(result)
+        except Exception as e:
+            st.error(f"FATAL EXCEPTION: {str(e)}")
