@@ -118,7 +118,11 @@ class SynthesizerAgent:
 # --- Orchestration Graph Runtime ---
 
 class ARFTMultiAgentSwarm:
-    def __init__(self, api_key: str):
+    def __init__(self):
+        # Automatically loads GROQ_API_KEY from environment variables (.env or system export)
+        api_key = os.environ.get("GROQ_API_KEY")
+        if not api_key:
+            raise ValueError("GROQ_API_KEY environment variable is not set.")
         self.client = AsyncGroq(api_key=api_key)
         self.router = RouterAgent(self.client)
         self.retriever = RetrievalAgent()
@@ -150,18 +154,21 @@ st.title("QUANTUM-GRAFT // TERMINAL SWARM")
 st.markdown("### A.I. Sovereign Adaptive Retrieval-FineTuning Neural Engine")
 
 with st.sidebar:
-    st.header("CONFIG // SECRETS")
-    api_key_input = st.text_input("Groq API Key", type="password", value=os.environ.get("GROQ_API_KEY", ""))
-    st.markdown("---")
+    st.header("CONFIG // STATUS")
     st.markdown("**Active Engine:** `llama-3.3-70b-versatile`")
     st.markdown("**Hardware:** Groq LPU")
     st.markdown("**Topology:** AR-FT Multi-Agent Graph")
+    st.markdown("---")
+    if os.environ.get("GROQ_API_KEY"):
+        st.success("STATUS: API Key Secured via Environment")
+    else:
+        st.warning("STATUS: GROQ_API_KEY missing in environment variables.")
 
 user_prompt = st.text_area("INITIALIZE SWARM COMMAND:", "Deploy adaptive retrieval fine-tuning for extreme multi-agent synchronization.")
 
 if st.button("EXECUTE SWARM CYCLE"):
-    if not api_key_input:
-        st.error("ERROR: Missing Groq API Key. Input credentials in sidebar.")
+    if not os.environ.get("GROQ_API_KEY"):
+        st.error("ERROR: GROQ_API_KEY environment variable not detected. Set it in your terminal via `export GROQ_API_KEY='your_key'` before running streamlit.")
     else:
         st.markdown("---")
         status_container = st.empty()
@@ -171,9 +178,8 @@ if st.button("EXECUTE SWARM CYCLE"):
             logs.append(msg)
             status_container.markdown("\n\n".join([f"> `{log}`" for log in logs]))
 
-        swarm = ARFTMultiAgentSwarm(api_key_input)
-        
         try:
+            swarm = ARFTMultiAgentSwarm()
             result = asyncio.run(swarm.run(user_prompt, update_status))
             st.markdown("### EXECUTION RESULT:")
             st.success(result)
